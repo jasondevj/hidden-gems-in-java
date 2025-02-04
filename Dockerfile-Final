@@ -1,0 +1,23 @@
+FROM eclipse-temurin:21.0.5_11-jdk-alpine AS jre-builder
+ARG JAR_FILE=target/*.jar
+COPY ${JAR_FILE} application.jar
+
+RUN jar xvf application.jar
+
+RUN jdeps --ignore-missing-deps -q  --recursive --multi-release 21 --print-module-deps --class-path 'BOOT-INF/lib/*'  \
+    application.jar > modules.txt
+RUN jlink --verbose --add-modules $(cat modules.txt) --strip-debug --no-man-pages --no-header-files --compress=zip-9 --output /optimized-jdk-21
+
+RUN java -Djarmode=tools -jar application.jar extract --layers --destination extracted
+
+FROM alpine:latest
+ENV JAVA_HOME=/opt/jdk/jdk-21
+ENV PATH="${JAVA_HOME}/bin:${PATH}"
+
+COPY --from=jre-builder /optimized-jdk-21 $JAVA_HOME
+COPY --from=jre-builder extracted/dependencies/ /app/
+COPY --from=jre-builder extracted/snapshot-dependencies/ /app/
+COPY --from=jre-builder extracted/spring-boot-loader/ /app/
+COPY --from=jre-builder extracted/application/ /app/
+
+ENTRYPOINT ["java", "-jar", "/app/application.jar"]

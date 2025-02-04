@@ -1,0 +1,7 @@
+FROM alpine:latest
+
+ARG JAR_FILE=target/hidden-gems-in-java
+COPY ${JAR_FILE} hidden-gems-in-java
+
+ENTRYPOINT ["./hidden-gems-in-java"]
+
